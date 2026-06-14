@@ -1,24 +1,25 @@
-from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger
+from astrbot.api.event import AstrMessageEvent, filter
+from astrbot.api.star import Context, Star
 
-@register("helloworld", "YourName", "一个简单的 Hello World 插件", "1.0.0")
-class MyPlugin(Star):
+
+class EndReplyPlugin(Star):
+    """给 LLM 一个「我说完了」工具：在没有更多内容要输出时主动、干净地结束本回合。
+
+    背景：AstrBot 的 agent 工具循环里，如果模型在调用工具之后那一轮交了空回复
+    （无正文、无思考、无工具调用），provider 会判为「无输出」并重试 3 次、最终报错降级。
+    本插件提供 end_reply 工具——它返回 None，触发 runner 的 `resp is None` 分支
+    （AgentState.DONE），让模型把「不再输出」变成一次主动、合法的结束，而不是故障。
+    """
+
     def __init__(self, context: Context):
         super().__init__(context)
 
-    async def initialize(self):
-        """可选择实现异步的插件初始化方法，当实例化该插件类之后会自动调用该方法。"""
-
-    # 注册指令的装饰器。指令名为 helloworld。注册成功后，发送 `/helloworld` 就会触发这个指令，并回复 `你好, {user_name}!`
-    @filter.command("helloworld")
-    async def helloworld(self, event: AstrMessageEvent):
-        """这是一个 hello world 指令""" # 这是 handler 的描述，将会被解析方便用户了解插件内容。建议填写。
-        user_name = event.get_sender_name()
-        message_str = event.message_str # 用户发的纯文本消息字符串
-        message_chain = event.get_messages() # 用户所发的消息的消息链 # from astrbot.api.message_components import *
-        logger.info(message_chain)
-        yield event.plain_result(f"Hello, {user_name}, 你发了 {message_str}!") # 发送一条纯文本消息
-
-    async def terminate(self):
-        """可选择实现异步的插件销毁方法，当插件被卸载/停用时会调用。"""
+    @filter.llm_tool(name="end_reply")
+    async def end_reply(self, event: AstrMessageEvent):
+        """当你这一轮已经把想说的都表达完、没有更多内容要输出时，调用本工具干净地结束本回合。
+        用它来代替「交一条空回复」——空回复会被系统判为无输出、反复重试并最终报错降级。
+        注意：如果你还有话要说，就直接正常写出来，不要调用本工具。
+        """
+        # 返回 None → 工具执行器 yield None → agent 循环转入 DONE，不再请求「最后一轮」。
+        # 不调用 stop_event()，以免误伤同一轮里模型已写出的正文。
+        return None
