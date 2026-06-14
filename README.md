@@ -1,4 +1,4 @@
-# astrbot_plugin_end_reply
+# 主动结束回复
 
 给 LLM 一个 `end_reply` 工具：当它已经把想说的都说完、没有更多内容要输出时，主动、干净地结束这一回合。
 
