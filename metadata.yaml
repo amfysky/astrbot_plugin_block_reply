@@ -1,4 +1,4 @@
-name: astrbot_plugin_end_reply
+name: 主动结束回复
 desc: 给 LLM 一个 end_reply 工具，让它在说完后主动干净地结束本回合，避免空回复被判为无输出而重试报错
 version: 1.0.0
 author: amfysky
